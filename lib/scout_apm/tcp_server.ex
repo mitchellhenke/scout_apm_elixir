@@ -13,28 +13,17 @@ defmodule TcpServer do
   end
 
   def handle_cast({:send, message}, %{socket: socket} = state) when is_map(message) do
-    message = Poison.encode!(message)
-    length = byte_size(message)
-
-    binary_length =
-      :binary.encode_unsigned(length, :big)
-      |> pad_leading(4, 0)
-
-    :gen_tcp.send(socket, binary_length)
-    IO.inspect(binary_length, label: "Sending Length")
-
-    :gen_tcp.send(socket, message)
-
-    IO.inspect(message, label: "Sending Message")
-
-    {:ok, <<message_length::big-unsigned-integer-size(32)>>} =
-      :gen_tcp.recv(socket, 4)
-
-    IO.inspect(message_length, label: "Receiving Length")
-
-    {:ok, msg} =
-      :gen_tcp.recv(socket, message_length)
-      |> IO.inspect(label: "Receiving Message")
+    with {:ok, encoded} <- Poison.encode(message),
+         message_length <- byte_size(encoded),
+         binary_length <- pad_leading(:binary.encode_unsigned(message_length, :big), 4, 0),
+         :ok <- :gen_tcp.send(socket, binary_length),
+         :ok <- :gen_tcp.send(socket, encoded),
+         {:ok, <<message_length::big-unsigned-integer-size(32)>>} <- :gen_tcp.recv(socket, 4),
+         {:ok, msg} <- :gen_tcp.recv(socket, message_length),
+         {:ok, decoded_msg} <- Poison.decode(msg) do
+      IO.inspect(message_length, label: "MESSAGE LENGTH")
+      IO.inspect(decoded_msg, label: "MESSAGE")
+    end
 
     {:noreply, state}
   end
