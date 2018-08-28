@@ -14,7 +14,7 @@ defmodule TcpServer do
 
   def handle_cast({:send, message}, %{socket: socket} = state) when is_map(message) do
     message = Poison.encode!(message)
-    length = String.length(message)
+    length = byte_size(message)
 
     binary_length =
       :binary.encode_unsigned(length, :big)
